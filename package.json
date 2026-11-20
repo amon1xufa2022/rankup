@@ -1,0 +1,16 @@
+{
+  "name": "rankup",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Сайт отчётов на повышение с входом через Discord, ролевой иерархией и отправкой итогов в Discord-канал по вебхуку",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
+  }
+}

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RankUp — Отчёты на повышение</title>
+  <meta name="description" content="Подача отчётов на повышение с авторизацией через Discord, проверкой ролей и отправкой итогов в канал по вебхуку." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235865F2'/%3E%3Cpath d='M32 12l14 14h-8v22h-12V26h-8z' fill='white'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <!-- Фоновое оформление -->
+  <div class="bg-fx" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="grid-fx"></div>
+  </div>
+
+  <!-- ══════════ ШАПКА ══════════ -->
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="/" aria-label="RankUp — на главную">
+        <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
+          <defs>
+            <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#7983f5"/><stop offset="1" stop-color="#5865F2"/>
+            </linearGradient>
+          </defs>
+          <rect width="64" height="64" rx="15" fill="url(#lg)"/>
+          <path d="M32 12l15 15h-9v23h-12V27h-9l15-15z" fill="#fff" opacity="0.96"/>
+        </svg>
+        <span class="brand-name" id="brandName">RankUp</span>
+      </a>
+      <div class="topbar-right" id="topbarRight">
+        <span class="skeleton-pill"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ══════════ ДЕМО-ЛЕНТА (только DEMO_MODE) ══════════ -->
+    <div id="demoBanner" class="demo-banner hidden" role="status">
+      <span class="demo-dot"></span>
+      <div><b>Демо-режим.</b> Ключи Discord ещё не подключены — войдите как любой профиль:</div>
+      <div class="demo-actions">
+        <button class="btn btn-small btn-ghost" data-demo="user">Игрок</button>
+        <button class="btn btn-small btn-ghost" data-demo="instructor">Инструктор</button>
+        <button class="btn btn-small btn-ghost" data-demo="admin">Администратор</button>
+      </div>
+    </div>
+
+    <!-- ══════════ ЛЕНДИНГ (не авторизован) ══════════ -->
+    <section id="landingView" class="landing hidden">
+      <div class="hero">
+        <div class="hero-badge"><span class="pulse-dot"></span> Discord OAuth2 · роли сервера · вебхук</div>
+        <h1 class="hero-title">Отчёт на повышение —<br /><span class="gradient-text">без лишних слов и потерянных заявок</span></h1>
+        <p class="hero-sub">Войдите через Discord, заполните отчёт — и он мгновенно попадёт на рассмотрение тем, у кого есть роль <b>Инструктор</b> и выше. После одобрения итог сам улетит в ваш канал по вебхуку.</p>
+
+        <div class="hero-cta">
+          <a id="discordLoginBtn" class="btn btn-discord btn-hero" href="/auth/discord">
+            <svg viewBox="0 0 24 18" width="26" height="20" aria-hidden="true"><path fill="currentColor" d="M20.3 1.6A19.8 19.8 0 0 0 15.4.1c-.2.4-.4.9-.6 1.3a18.3 18.3 0 0 0-5.6 0C9 1 8.8.5 8.6.1a19.7 19.7 0 0 0-4.9 1.5C.9 5.9.2 10 .6 14a19.9 19.9 0 0 0 6 3c.5-.6.9-1.3 1.3-2-.7-.3-1.4-.7-2-1.2l.5-.4a14.2 14.2 0 0 0 12.2 0l.5.4c-.6.5-1.3.9-2 1.2.4.7.8 1.4 1.3 2a19.9 19.9 0 0 0 6-3c.5-4.7-.8-8.7-3.2-12.4ZM8.7 11.4c-1.2 0-2.2-1.1-2.2-2.4S7.5 6.5 8.7 6.5s2.2 1.1 2.2 2.5-1 2.4-2.2 2.4Zm6.6 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.5-1 2.4-2.2 2.4Z"/></svg>
+            Войти через Discord
+          </a>
+          <div class="hero-note">Запрашиваем только <code>identify</code> и <code>guilds.members.read</code> — пароль мы не видим.</div>
+        </div>
+
+        <div id="oauthWarning" class="oauth-warning hidden"></div>
+      </div>
+
+      <div class="feature-grid">
+        <div class="card feature">
+          <div class="feature-icon fi-blurple">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 4v6c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-4z"/><path d="M9.5 12l2 2 3.5-4"/></svg>
+          </div>
+          <h3>Привязка к ролям</h3>
+          <p>Просмотр ваших ролей на сервере через OAuth2 — без ботов внутри клиента. Доступ решает ваш сервер, а не мы.</p>
+        </div>
+        <div class="card feature">
+          <div class="feature-icon fi-green">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-5"/><rect x="3" y="4" width="18" height="16" rx="3"/></svg>
+          </div>
+          <h3>Инструктор и выше</h3>
+          <p>Одобрять отчёты могут только роли не ниже заданного уровня. Иерархию, названия и ID вы настраиваете сами на сайте.</p>
+        </div>
+        <div class="card feature">
+          <div class="feature-icon fi-yellow">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </div>
+          <h3>Итог в канал</h3>
+          <p>После одобрения карточка с отчётом сама прилетает в выбранный канал — через вебхук, красивым embed-сообщением.</p>
+        </div>
+      </div>
+
+      <div class="how">
+        <h2 class="how-title">Как это работает</h2>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div><b>Входите через Discord</b><span>один клик, без регистрации — мы берём ник и роли с вашего сервера</span></div></div>
+          <div class="step-line"></div>
+          <div class="step"><div class="step-num">2</div><div><b>Оставляете отчёт</b><span>заполняете форму: текущий и желаемый ранг, что сделано, ссылки-доказательства</span></div></div>
+          <div class="step-line"></div>
+          <div class="step"><div class="step-num">3</div><div><b>Инструктор одобряет</b><span>и итог автоматически отправляется в Discord-канал по вебхуку</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ ПРИЛОЖЕНИЕ (авторизован) ══════════ -->
+    <section id="appView" class="app hidden">
+
+      <!-- Профильная полоса -->
+      <div class="card profile-strip" id="profileStrip">
+        <div class="profile-left">
+          <div class="avatar-ring"><img id="userAvatar" class="avatar" alt="Аватар" /></div>
+          <div class="profile-meta">
+            <div class="profile-name"><span id="userDisplayName">—</span><span id="levelBadge" class="level-badge hidden"></span></div>
+            <div class="profile-handle">@<span id="userName">—</span><span id="guildWarn" class="guild-warn hidden"> · вы не на указанном сервере — роли не определены</span></div>
+          </div>
+        </div>
+        <div class="profile-right">
+          <button id="logoutBtn" class="btn btn-ghost btn-small">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+            Выйти
+          </button>
+        </div>
+      </div>
+
+      <!-- Вкладки -->
+      <nav class="tabs" id="tabsNav" role="tablist">
+        <button class="tab active" data-tab="new" role="tab">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          Отчёт на повышение
+        </button>
+        <button class="tab" data-tab="mine" role="tab">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          Мои отчёты <span class="count-badge hidden" id="mineCount"></span>
+        </button>
+        <button class="tab hidden" data-tab="approve" id="tabApprove" role="tab">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Одобрение <span class="count-badge count-warn hidden" id="pendingCount"></span>
+        </button>
+        <button class="tab hidden" data-tab="admin" id="tabAdmin" role="tab">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Управление
+        </button>
+      </nav>
+
+      <div class="tab-panels">
+
+        <!-- ── Панель: форма отчёта ── -->
+        <section id="panel-new" class="tab-panel">
+          <div id="reportLockNotice" class="lock-notice hidden" role="status">
+            <div class="lock-icon">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div class="lock-body">
+              <div class="lock-title">Пока нельзя подать новый отчёт</div>
+              <div class="lock-text" id="reportLockText"></div>
+              <button class="btn btn-ghost btn-small lock-cta" id="lockGoMineBtn">Посмотреть мои отчёты</button>
+            </div>
+          </div>
+          <div class="new-grid" id="reportFormWrap">
+            <form id="reportForm" class="card report-form" novalidate>
+              <div class="card-head">
+                <h2>Отчёт на повышение</h2>
+                <p>Заполните форму — заявка уйдёт на рассмотрение Инструктору и выше.</p>
+              </div>
+              <div id="dynamicFields" class="dynamic-fields"></div>
+              <div class="form-foot">
+                <button type="submit" class="btn btn-primary btn-big" id="submitReportBtn">
+                  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                  Отправить отчёт
+                </button>
+              </div>
+            </form>
+
+            <aside class="card side-note">
+              <h3>Как быстро рассмотрят?</h3>
+              <ul class="side-list">
+                <li><span class="side-num">1</span>Заявка попадает в очередь «Одобрение» у всех Инструкторов и выше.</li>
+                <li><span class="side-num">2</span>Инструктор проверяет отчёт и нажимает «Одобрить» или «Отклонить».</li>
+                <li><span class="side-num">3</span>После одобрения итог автоматически публикуется в Discord-канал по вебхуку.</li>
+              </ul>
+              <div class="side-tip">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                Чем конкретнее отчёт и чем больше доказательств — тем выше шанс быстрого одобрения.
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <!-- ── Панель: мои отчёты ── -->
+        <section id="panel-mine" class="tab-panel hidden">
+          <div class="panel-head"><h2>Мои отчёты</h2><p>История ваших заявок и статусы рассмотрения</p></div>
+          <div id="mineList" class="report-list"></div>
+        </section>
+
+        <!-- ── Панель: очередь на одобрение ── -->
+        <section id="panel-approve" class="tab-panel hidden">
+          <div class="panel-head row-between">
+            <div><h2>Одобрение отчётов</h2><p>Доступно ролям уровня «Инструктор» и выше</p></div>
+            <div class="segmented" id="approveFilters">
+              <button class="seg active" data-status="pending">Ожидают</button>
+              <button class="seg" data-status="approved">Одобренные</button>
+              <button class="seg" data-status="rejected">Отклонённые</button>
+              <button class="seg" data-status="all">Все</button>
+            </div>
+          </div>
+          <div id="queueList" class="report-list"></div>
+        </section>
+
+        <!-- ── Панель: управление ── -->
+        <section id="panel-admin" class="tab-panel hidden">
+          <div class="panel-head"><h2>Управление сайтом</h2><p>Меняйте любые пункты: поля формы, варианты рангов, роли и уровни, вебхук, название сайта</p></div>
+
+          <div class="admin-shell">
+            <aside class="admin-nav" id="adminNav">
+              <button class="admin-nav-item active" data-sub="overview"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z"/></svg>Обзор</button>
+              <button class="admin-nav-item" data-sub="log"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Лог заявок</button>
+              <button class="admin-nav-item" data-sub="fields"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L10 16l-4 1 1-4Z"/></svg>Поля и ранги</button>
+              <button class="admin-nav-item" data-sub="roles"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="M22 11h-6"/><path d="M19 8v6"/></svg>Роли Discord</button>
+              <button class="admin-nav-item" data-sub="webhook"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Вебхук</button>
+              <button class="admin-nav-item" data-sub="site"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5"/></svg>Сайт</button>
+            </aside>
+
+            <div class="admin-panels">
+
+              <div class="admin-sub" id="sub-overview">
+                <div class="stat-grid" id="statGrid"></div>
+                <div class="overview-cols">
+                  <div class="card admin-card">
+                    <h3 class="admin-card-title">Последние события</h3>
+                    <div id="activityFeed" class="activity-feed"></div>
+                  </div>
+                  <div class="card admin-card">
+                    <h3 class="admin-card-title">Свежие отчёты</h3>
+                    <div id="latestReports" class="latest-reports"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="admin-sub hidden" id="sub-log">
+                <div class="card admin-card">
+                  <div class="admin-card-head">
+                    <div><h3 class="admin-card-title">Лог заявок</h3><p class="admin-card-sub">Все отчёты на повышение в хронологическом порядке — от новых к старым</p></div>
+                    <div class="segmented" id="logFilters">
+                      <button class="seg active" data-status="all">Все</button>
+                      <button class="seg" data-status="pending">Ожидают</button>
+                      <button class="seg" data-status="approved">Одобренные</button>
+                      <button class="seg" data-status="rejected">Отклонённые</button>
+                    </div>
+                  </div>
+                  <div id="logList" class="report-list"></div>
+                </div>
+              </div>
+
+              <div class="admin-sub hidden" id="sub-fields">
+                <div class="card admin-card">
+                  <div class="admin-card-head">
+                    <div><h3 class="admin-card-title">Поля формы отчёта</h3><p class="admin-card-sub">Названия, типы, обязательность и варианты выбора (ранги). Порядок меняется стрелками.</p></div>
+                    <button id="addFieldBtn" class="btn btn-ghost btn-small">+ Добавить поле</button>
+                  </div>
+                  <div id="fieldsEditor" class="fields-editor"></div>
+                  <div class="admin-save-row"><button id="saveFieldsBtn" class="btn btn-primary">Сохранить поля</button></div>
+                </div>
+              </div>
+
+              <div class="admin-sub hidden" id="sub-roles">
+                <div class="card admin-card">
+                  <h3 class="admin-card-title">Подключение к серверу Discord</h3>
+                  <label class="field-label" for="setGuildId">ID сервера (Guild ID)</label>
+                  <input class="input" id="setGuildId" placeholder="Например: 123456789012345678" inputmode="numeric" />
+                  <p class="hint">Discord → Настройки → Расширенные → <b>Режим разработчика</b>, затем ПКМ по иконке сервера → «Копировать ID сервера».</p>
+                </div>
+
+                <div class="card admin-card">
+                  <div class="admin-card-head">
+                    <div><h3 class="admin-card-title">Иерархия ролей</h3><p class="admin-card-sub">Чем выше уровень — тем больше прав. «Инструктор и выше» одобряют отчёты. ID роли копируется так же: ПКМ по роли в настройках сервера.</p></div>
+                    <button id="addRoleRowBtn" class="btn btn-ghost btn-small">+ Добавить роль</button>
+                  </div>
+                  <div class="roles-table-head"><span>Ур.</span><span>Название</span><span>ID роли Discord</span><span>Цвет</span><span></span></div>
+                  <div id="hierarchyEditor" class="hierarchy-editor"></div>
+                </div>
+
+                <div class="card admin-card">
+                  <h3 class="admin-card-title">Минимальные уровни доступа</h3>
+                  <div class="level-grid">
+                    <div>
+                      <label class="field-label" for="setApproverMin">Одобрение отчётов (Инструктор и выше)</label>
+                      <input class="input" id="setApproverMin" type="number" min="0" max="99" />
+                    </div>
+                    <div>
+                      <label class="field-label" for="setAdminMin">Управление сайтом (эта панель)</label>
+                      <input class="input" id="setAdminMin" type="number" min="0" max="99" />
+                    </div>
+                  </div>
+                  <p class="hint">Пустой ID роли = роль не участвует в проверке. Пользователь с несколькими ролями получает наибольший уровень. Супер-админы из <code>ADMIN_DISCORD_IDS</code> имеют доступ всегда.</p>
+                  <div class="admin-save-row"><button id="saveRolesBtn" class="btn btn-primary">Сохранить роли и уровни</button></div>
+                </div>
+              </div>
+
+              <div class="admin-sub hidden" id="sub-webhook">
+                <div class="card admin-card">
+                  <h3 class="admin-card-title">Вебхук Discord-канала</h3>
+                  <p class="admin-card-sub">Канал → шестерёнка → Интеграции → Вебхуки → Новый вебхук → «Копировать URL вебхука». После одобрения отчёта сюда автоматически прилетит итог.</p>
+                  <label class="field-label" for="setWebhookUrl">URL вебхука</label>
+                  <div class="webhook-row">
+                    <input class="input mono" id="setWebhookUrl" type="password" placeholder="https://discord.com/api/webhooks/..." autocomplete="off" spellcheck="false" />
+                    <button id="toggleWebhookVisibility" class="btn btn-ghost btn-small" type="button">Показать</button>
+                  </div>
+                  <label class="field-label" for="setWebhookName">Имя отправителя (необязательно)</label>
+                  <input class="input" id="setWebhookName" placeholder="Например: RankUp · Повышения" maxlength="80" />
+                  <div class="webhook-actions">
+                    <button id="saveWebhookBtn" class="btn btn-primary">Сохранить вебхук</button>
+                    <button id="testWebhookBtn" class="btn btn-ghost">Тестовое сообщение</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="admin-sub hidden" id="sub-site">
+                <div class="card admin-card">
+                  <h3 class="admin-card-title">Название и описание сайта</h3>
+                  <label class="field-label" for="setSiteTitle">Название</label>
+                  <input class="input" id="setSiteTitle" maxlength="80" placeholder="RankUp" />
+                  <label class="field-label" for="setSiteTagline">Подзаголовок</label>
+                  <input class="input" id="setSiteTagline" maxlength="200" placeholder="Отчёты на повышение — быстро и прозрачно" />
+                  <div class="admin-save-row"><button id="saveSiteBtn" class="btn btn-primary">Сохранить сайт</button></div>
+                </div>
+
+                <div class="card admin-card danger-zone">
+                  <h3 class="admin-card-title danger-title">Опасная зона</h3>
+                  <p class="admin-card-sub">Сбросит название, поля, роли, уровни и вебхук к значениям по умолчанию. Отчёты при этом сохранятся.</p>
+                  <button id="resetSettingsBtn" class="btn btn-red">Сбросить настройки к умолчаниям</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span id="footerBrand">RankUp</span>
+      <span class="footer-dim">Авторизация — Discord OAuth2 · Итоги — вебхук Discord · Роли решают всё</span>
+    </div>
+  </footer>
+
+  <!-- ══════════ Модалка решения по отчёту ══════════ -->
+  <div id="reviewModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="reviewModalTitle">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card">
+      <h3 id="reviewModalTitle" class="modal-title">Одобрить отчёт</h3>
+      <p id="reviewModalSub" class="modal-sub"></p>
+      <label class="field-label" for="reviewComment">Комментарий (необязательно)</label>
+      <textarea id="reviewComment" class="input textarea" rows="3" maxlength="1000" placeholder="Причина решения / пожелание автору..."></textarea>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-close-modal>Отмена</button>
+        <button class="btn" id="reviewConfirmBtn">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ Тосты ══════════ -->
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
